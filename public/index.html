@@ -10,8 +10,8 @@
         input[type="file"] { width: 100%; padding: 10px; margin-bottom: 10px; }
         button { background-color: #007bff; color: white; border: none; padding: 12px 24px; border-radius: 6px; cursor: pointer; margin-top: 10px; font-size: 16px; font-weight: bold; width: 100%; }
         button:disabled { background-color: #cccccc; cursor: not-allowed; }
-        .download-btn { background-color: #2ecc71; text-decoration: none; display: block; color: white; padding: 12px 24px; border-radius: 6px; font-weight: bold; margin-top: 20px; }
-        #message { margin-top: 20px; font-weight: bold; font-size: 15px; padding: 10px; border-radius: 5px; }
+        .download-btn { background-color: #2ecc71; text-decoration: none; display: block; color: white; padding: 12px 24px; border-radius: 6px; font-weight: bold; margin-top: 20px; text-align: center; }
+        #message { margin-top: 20px; font-weight: bold; font-size: 15px; padding: 10px; border-radius: 5px; word-wrap: break-word; }
         .loading-text { color: #34495e; background-color: #ebf5fb; }
         .success-text { color: #27ae60; background-color: #e8f8f5; }
         .error-text { color: #c0392b; background-color: #fadbd8; }
@@ -20,78 +20,55 @@
 <body>
 
     <h1>محول ملفات PDF إلى قابلة للبحث 🔍</h1>
-    <p>قم برفع ملفك مباشرة ليتم تحويله عبر الـ OCR ليدعم البحث والنسخ (عربي وإنجليزي).</p>
+    <p>قم برفع ملفك ليتم تحويله عبر سيرفر الموقع إلى نسخته القابلة للبحث والنسخ بالكامل.</p>
 
     <div class="card">
         <input type="file" id="pdfFile" accept=".pdf">
-        <button id="uploadBtn" onclick="handleDirectUpload()">ابدأ التحويل الآن</button>
+        <button id="uploadBtn" onclick="handleVercelUpload()">ابدأ التحويل الآن</button>
         <a id="downloadBtn" class="download-btn" style="display: none;" target="_blank">📥 تحميل الملف الجاهز</a>
     </div>
 
     <div id="message" style="display: none;"></div>
 
     <script>
-        async function handleDirectUpload() {
+        async function handleVercelUpload() {
             const fileInput = document.getElementById('pdfFile');
             const uploadBtn = document.getElementById('uploadBtn');
             const downloadBtn = document.getElementById('downloadBtn');
             const messageEl = document.getElementById('message');
 
-            // 1. التأكد من اختيار ملف
             if (fileInput.files.length === 0) {
                 showMessage("الرجاء اختيار ملف PDF أولاً!", "error-text");
                 return;
             }
 
-            // 2. التقاط الملف الأول المختار بدقة من المصفوفة
             const file = fileInput.files[0];
-
-            // 3. فحص حجم الملف (الحد الأقصى للمجاني هو 25 ميجابايت)
-            const maxSizeInBytes = 25 * 1024 * 1024; 
-            if (file.size > maxSizeInBytes) {
-                showMessage("حجم الملف كبير جداً! الحد الأقصى المسموح به هو 25 ميجابايت.", "error-text");
-                return;
-            }
-
-            // 4. بناء طلب الـ FormData بشكل صحيح ومتوافق مع السيرفر السحابي
             const formData = new FormData();
-            formData.append('apikey', 'helloworld'); // يمكنك استبداله بمفتاحك المجاني الخاص لاحقاً لسرعة واستقرار أعلى
-            formData.append('language', 'ara');      // يدعم العربية والإنجليزية معاً تلقائياً في المستندات المشتركة
-            formData.append('isOverlayRequired', 'true');
-            formData.append('isCreateSearchablePdf', 'true');
-            formData.append('isSearchablePdfHideTextLayer', 'true');
-            
-            // إرسال الملف الفعلي كـ Binary مع مرير اسمه وامتداده بشكل سليم
-            formData.append('file', file, file.name);
+            formData.append('file', file);
 
-            // تحديث عناصر الواجهة لبدء المعالجة
+            // إعداد واجهة المستخدم لبدء المعالجة
             uploadBtn.disabled = true;
-            uploadBtn.innerText = "جاري المعالجة والتحويل (قد يستغرق دقيقة)...";
+            uploadBtn.innerText = "جاري التحويل من خلال الـ OCR...";
             downloadBtn.style.display = "none";
-            showMessage("جاري رفع الملف ومعالجته عبر الـ OCR سحابياً مباشرة... يرجى عدم إغلاق الصفحة.", "loading-text");
+            showMessage("جاري رفع الملف ومعالجته آمنًا عبر السيرفر... قد يستغرق ذلك من 30 إلى 60 ثانية.", "loading-text");
 
             try {
-                // 5. إرسال الطلب للسيرفر عبر الـ POST Method
-                const response = await fetch('https://ocr.space', {
+                // نرسل الطلب إلى السيرفر الخاص بنا على Vercel تلقائياً عبر الرابط النسبي
+                const response = await fetch('/api/convert', {
                     method: 'POST',
                     body: formData
                 });
 
-                if (!response.ok) {
-                    throw new Error(`خطأ من السيرفر السحابي بترميز: ${response.status}`);
-                }
-
                 const data = await response.json();
 
-                // 6. التحقق من نجاح العملية واستلام رابط الـ Searchable PDF
-                if (data.OCRExitCode === 1 && data.SearchablePdfURL) {
-                    downloadBtn.href = data.SearchablePdfURL;
-                    downloadBtn.style.display = "block";
-                    showMessage("تم التحويل بنجاح! اضغط على الزر الأخضر أدناه لتحميل نسخة الـ Searchable PDF الخاصة بك.", "success-text");
-                } else {
-                    const apiError = data.ErrorMessage ? data.ErrorMessage : 'فشلت معالجة الملف، ربما السيرفر المجاني مضغوط حالياً.';
-                    throw new Error(apiError);
+                if (!response.ok || !data.success) {
+                    throw new Error(data.detail || 'فشلت عملية معالجة السيرفر للملف');
                 }
+
+                // عرض الرابط النهائي المباشر للتحميل
+                downloadBtn.href = data.download_url;
+                downloadBtn.style.display = "block";
+                showMessage("تم التحويل بنجاح! اضغط على الزر الأخضر أدناه لتحميل ملفك الجاهز.", "success-text");
 
             } catch (error) {
                 showMessage(`حدث خطأ أثناء المعالجة: ${error.message}`, "error-text");
