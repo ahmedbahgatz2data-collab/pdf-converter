@@ -37,54 +37,59 @@
             const downloadBtn = document.getElementById('downloadBtn');
             const messageEl = document.getElementById('message');
 
+            // 1. التأكد من اختيار ملف
             if (fileInput.files.length === 0) {
                 showMessage("الرجاء اختيار ملف PDF أولاً!", "error-text");
                 return;
             }
 
+            // 2. التقاط الملف الأول المختار بدقة من المصفوفة
             const file = fileInput.files[0];
 
-            // فحص حجم الملف قبل الرفع (الخطة المجانية لـ OCR space تدعم حتى 25 ميجابايت للملف الواحد)
+            // 3. فحص حجم الملف (الحد الأقصى للمجاني هو 25 ميجابايت)
             const maxSizeInBytes = 25 * 1024 * 1024; 
             if (file.size > maxSizeInBytes) {
                 showMessage("حجم الملف كبير جداً! الحد الأقصى المسموح به هو 25 ميجابايت.", "error-text");
                 return;
             }
 
+            // 4. بناء طلب الـ FormData بشكل صحيح ومتوافق مع السيرفر السحابي
             const formData = new FormData();
-            // ملحوظة: للحصول على أداء مستقر وسريع جداً بدون أعطال، يفضل التسجيل المجاني في ocr.space ووضع مفتاحك هنا بدلاً من 'helloworld'
-            formData.append('apikey', 'helloworld'); 
-            formData.append('language', 'ara'); // يدعم العربية والانجليزية معاً تلقائياً
+            formData.append('apikey', 'helloworld'); // يمكنك استبداله بمفتاحك المجاني الخاص لاحقاً لسرعة واستقرار أعلى
+            formData.append('language', 'ara');      // يدعم العربية والإنجليزية معاً تلقائياً في المستندات المشتركة
             formData.append('isOverlayRequired', 'true');
             formData.append('isCreateSearchablePdf', 'true');
             formData.append('isSearchablePdfHideTextLayer', 'true');
-            formData.append('file', file);
+            
+            // إرسال الملف الفعلي كـ Binary مع مرير اسمه وامتداده بشكل سليم
+            formData.append('file', file, file.name);
 
-            // تحديث عناصر الواجهة
+            // تحديث عناصر الواجهة لبدء المعالجة
             uploadBtn.disabled = true;
             uploadBtn.innerText = "جاري المعالجة والتحويل (قد يستغرق دقيقة)...";
             downloadBtn.style.display = "none";
             showMessage("جاري رفع الملف ومعالجته عبر الـ OCR سحابياً مباشرة... يرجى عدم إغلاق الصفحة.", "loading-text");
 
             try {
-                // الرفع المباشر إلى السيرفر السحابي
+                // 5. إرسال الطلب للسيرفر عبر الـ POST Method
                 const response = await fetch('https://ocr.space', {
                     method: 'POST',
                     body: formData
                 });
 
                 if (!response.ok) {
-                    throw new Error(`خطأ في السيرفر: ${response.status}`);
+                    throw new Error(`خطأ من السيرفر السحابي بترميز: ${response.status}`);
                 }
 
                 const data = await response.json();
 
+                // 6. التحقق من نجاح العملية واستلام رابط الـ Searchable PDF
                 if (data.OCRExitCode === 1 && data.SearchablePdfURL) {
                     downloadBtn.href = data.SearchablePdfURL;
                     downloadBtn.style.display = "block";
-                    showMessage("تم التحويل بنجاح! اضغط على الزر أدناه لتحميل نسخة الـ Searchable PDF الخاصة بك.", "success-text");
+                    showMessage("تم التحويل بنجاح! اضغط على الزر الأخضر أدناه لتحميل نسخة الـ Searchable PDF الخاصة بك.", "success-text");
                 } else {
-                    const apiError = data.ErrorMessage ? data.ErrorMessage[0] : 'فشلت معالجة الملف، ربما الملف يحتوي على نصوص معقدة جداً أو السيرفر مضغوط.';
+                    const apiError = data.ErrorMessage ? data.ErrorMessage : 'فشلت معالجة الملف، ربما السيرفر المجاني مضغوط حالياً.';
                     throw new Error(apiError);
                 }
 
