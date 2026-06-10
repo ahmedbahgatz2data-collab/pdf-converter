@@ -5,80 +5,102 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>محول الـ PDF إلى ملف قابل للبحث 🔍</title>
     <style>
-        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; text-align: center; margin-top: 100px; background-color: #f4f7f6; color: #333; }
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; text-align: center; margin-top: 80px; background-color: #f4f7f6; color: #333; }
         .card { border: 2px dashed #007bff; padding: 40px; border-radius: 12px; width: 90%; max-width: 450px; margin: 0 auto; background-color: #ffffff; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
-        button { background-color: #007bff; color: white; border: none; padding: 12px 24px; border-radius: 6px; cursor: pointer; margin-top: 20px; font-size: 16px; font-weight: bold; width: 100%; }
+        input[type="file"] { width: 100%; padding: 10px; margin-bottom: 10px; }
+        button { background-color: #007bff; color: white; border: none; padding: 12px 24px; border-radius: 6px; cursor: pointer; margin-top: 10px; font-size: 16px; font-weight: bold; width: 100%; }
         button:disabled { background-color: #cccccc; cursor: not-allowed; }
         .download-btn { background-color: #2ecc71; text-decoration: none; display: block; color: white; padding: 12px 24px; border-radius: 6px; font-weight: bold; margin-top: 20px; }
-        #message { margin-top: 20px; font-weight: bold; }
-        .loading-text { color: #555; }
-        .success-text { color: #2ecc71; }
-        .error-text { color: #e74c3c; }
+        #message { margin-top: 20px; font-weight: bold; font-size: 15px; padding: 10px; border-radius: 5px; }
+        .loading-text { color: #34495e; background-color: #ebf5fb; }
+        .success-text { color: #27ae60; background-color: #e8f8f5; }
+        .error-text { color: #c0392b; background-color: #fadbd8; }
     </style>
 </head>
 <body>
 
-    <h1>محول ملفات PDF إلى قابلة للبحث (Searchable PDF) 🔍</h1>
-    <p>ارفع ملف الـ PDF الممسوح ضوئياً (سواء كان عربي أو إنجليزي) لتحويله فوراً ليدعم البحث والنسخ.</p>
+    <h1>محول ملفات PDF إلى قابلة للبحث 🔍</h1>
+    <p>قم برفع ملفك مباشرة ليتم تحويله عبر الـ OCR ليدعم البحث والنسخ (عربي وإنجليزي).</p>
 
     <div class="card">
         <input type="file" id="pdfFile" accept=".pdf">
-        <button id="uploadBtn" onclick="handleUpload()">ابدأ التحويل الآن</button>
+        <button id="uploadBtn" onclick="handleDirectUpload()">ابدأ التحويل الآن</button>
         <a id="downloadBtn" class="download-btn" style="display: none;" target="_blank">📥 تحميل الملف الجاهز</a>
     </div>
 
-    <p id="message"></p>
+    <div id="message" style="display: none;"></div>
 
     <script>
-        async function handleUpload() {
+        async function handleDirectUpload() {
             const fileInput = document.getElementById('pdfFile');
             const uploadBtn = document.getElementById('uploadBtn');
             const downloadBtn = document.getElementById('downloadBtn');
             const messageEl = document.getElementById('message');
 
             if (fileInput.files.length === 0) {
-                messageEl.innerText = "الرجاء اختيار ملف PDF أولاً!";
-                messageEl.className = "error-text";
+                showMessage("الرجاء اختيار ملف PDF أولاً!", "error-text");
                 return;
             }
 
             const file = fileInput.files[0];
+
+            // فحص حجم الملف قبل الرفع (الخطة المجانية لـ OCR space تدعم حتى 25 ميجابايت للملف الواحد)
+            const maxSizeInBytes = 25 * 1024 * 1024; 
+            if (file.size > maxSizeInBytes) {
+                showMessage("حجم الملف كبير جداً! الحد الأقصى المسموح به هو 25 ميجابايت.", "error-text");
+                return;
+            }
+
             const formData = new FormData();
+            // ملحوظة: للحصول على أداء مستقر وسريع جداً بدون أعطال، يفضل التسجيل المجاني في ocr.space ووضع مفتاحك هنا بدلاً من 'helloworld'
+            formData.append('apikey', 'helloworld'); 
+            formData.append('language', 'ara'); // يدعم العربية والانجليزية معاً تلقائياً
+            formData.append('isOverlayRequired', 'true');
+            formData.append('isCreateSearchablePdf', 'true');
+            formData.append('isSearchablePdfHideTextLayer', 'true');
             formData.append('file', file);
 
-            // تحديث الواجهة لبدء الرفع المعالجة
+            // تحديث عناصر الواجهة
             uploadBtn.disabled = true;
-            uploadBtn.innerText = "جاري التحويل من خلال الـ OCR...";
-            messageEl.innerText = "جاري رفع ومعالجة الملف سحابياً... قد يستغرق هذا بضع ثوانٍ.";
-            messageEl.className = "loading-text";
+            uploadBtn.innerText = "جاري المعالجة والتحويل (قد يستغرق دقيقة)...";
             downloadBtn.style.display = "none";
+            showMessage("جاري رفع الملف ومعالجته عبر الـ OCR سحابياً مباشرة... يرجى عدم إغلاق الصفحة.", "loading-text");
 
             try {
-                // استدعاء الـ API الداخلي للـ مشروع على Vercel
-                const response = await fetch('/api/convert', {
+                // الرفع المباشر إلى السيرفر السحابي
+                const response = await fetch('https://ocr.space', {
                     method: 'POST',
                     body: formData
                 });
 
-                const data = await response.json();
-
-                if (!response.ok || !data.success) {
-                    throw new Error(data.detail || 'فشلت عملية التحويل');
+                if (!response.ok) {
+                    throw new Error(`خطأ في السيرفر: ${response.status}`);
                 }
 
-                // عرض زر التحميل عند النجاح
-                downloadBtn.href = data.download_url;
-                downloadBtn.style.display = "block";
-                messageEl.innerText = "تم التحويل بنجاح! اضغط على الزر أدناه لحفظ الملف.";
-                messageEl.className = "success-text";
+                const data = await response.json();
+
+                if (data.OCRExitCode === 1 && data.SearchablePdfURL) {
+                    downloadBtn.href = data.SearchablePdfURL;
+                    downloadBtn.style.display = "block";
+                    showMessage("تم التحويل بنجاح! اضغط على الزر أدناه لتحميل نسخة الـ Searchable PDF الخاصة بك.", "success-text");
+                } else {
+                    const apiError = data.ErrorMessage ? data.ErrorMessage[0] : 'فشلت معالجة الملف، ربما الملف يحتوي على نصوص معقدة جداً أو السيرفر مضغوط.';
+                    throw new Error(apiError);
+                }
 
             } catch (error) {
-                messageEl.innerText = `خطأ: ${error.message}`;
-                messageEl.className = "error-text";
+                showMessage(`حدث خطأ أثناء المعالجة: ${error.message}`, "error-text");
             } finally {
                 uploadBtn.disabled = false;
                 uploadBtn.innerText = "ابدأ التحويل الآن";
             }
+        }
+
+        function showMessage(text, className) {
+            const messageEl = document.getElementById('message');
+            messageEl.style.display = "block";
+            messageEl.innerText = text;
+            messageEl.className = className;
         }
     </script>
 </body>
