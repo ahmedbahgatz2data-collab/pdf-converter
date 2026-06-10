@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>محول الـ PDF إلى ملف قابل للبحث 🔍</title>
+    <style>
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; text-align: center; margin-top: 100px; background-color: #f4f7f6; color: #333; }
+        .card { border: 2px dashed #007bff; padding: 40px; border-radius: 12px; width: 90%; max-width: 450px; margin: 0 auto; background-color: #ffffff; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
+        button { background-color: #007bff; color: white; border: none; padding: 12px 24px; border-radius: 6px; cursor: pointer; margin-top: 20px; font-size: 16px; font-weight: bold; width: 100%; }
+        button:disabled { background-color: #cccccc; cursor: not-allowed; }
+        .download-btn { background-color: #2ecc71; text-decoration: none; display: block; color: white; padding: 12px 24px; border-radius: 6px; font-weight: bold; margin-top: 20px; }
+        #message { margin-top: 20px; font-weight: bold; }
+        .loading-text { color: #555; }
+        .success-text { color: #2ecc71; }
+        .error-text { color: #e74c3c; }
+    </style>
+</head>
+<body>
+
+    <h1>محول ملفات PDF إلى قابلة للبحث (Searchable PDF) 🔍</h1>
+    <p>ارفع ملف الـ PDF الممسوح ضوئياً (سواء كان عربي أو إنجليزي) لتحويله فوراً ليدعم البحث والنسخ.</p>
+
+    <div class="card">
+        <input type="file" id="pdfFile" accept=".pdf">
+        <button id="uploadBtn" onclick="handleUpload()">ابدأ التحويل الآن</button>
+        <a id="downloadBtn" class="download-btn" style="display: none;" target="_blank">📥 تحميل الملف الجاهز</a>
+    </div>
+
+    <p id="message"></p>
+
+    <script>
+        async function handleUpload() {
+            const fileInput = document.getElementById('pdfFile');
+            const uploadBtn = document.getElementById('uploadBtn');
+            const downloadBtn = document.getElementById('downloadBtn');
+            const messageEl = document.getElementById('message');
+
+            if (fileInput.files.length === 0) {
+                messageEl.innerText = "الرجاء اختيار ملف PDF أولاً!";
+                messageEl.className = "error-text";
+                return;
+            }
+
+            const file = fileInput.files[0];
+            const formData = new FormData();
+            formData.append('file', file);
+
+            // تحديث الواجهة لبدء الرفع المعالجة
+            uploadBtn.disabled = true;
+            uploadBtn.innerText = "جاري التحويل من خلال الـ OCR...";
+            messageEl.innerText = "جاري رفع ومعالجة الملف سحابياً... قد يستغرق هذا بضع ثوانٍ.";
+            messageEl.className = "loading-text";
+            downloadBtn.style.display = "none";
+
+            try {
+                // استدعاء الـ API الداخلي للـ مشروع على Vercel
+                const response = await fetch('/api/convert', {
+                    method: 'POST',
+                    body: formData
+                });
+
+                const data = await response.json();
+
+                if (!response.ok || !data.success) {
+                    throw new Error(data.detail || 'فشلت عملية التحويل');
+                }
+
+                // عرض زر التحميل عند النجاح
+                downloadBtn.href = data.download_url;
+                downloadBtn.style.display = "block";
+                messageEl.innerText = "تم التحويل بنجاح! اضغط على الزر أدناه لحفظ الملف.";
+                messageEl.className = "success-text";
+
+            } catch (error) {
+                messageEl.innerText = `خطأ: ${error.message}`;
+                messageEl.className = "error-text";
+            } finally {
+                uploadBtn.disabled = false;
+                uploadBtn.innerText = "ابدأ التحويل الآن";
+            }
+        }
+    </script>
+</body>
+</html>
